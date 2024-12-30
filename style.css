@@ -189,3 +189,7 @@ header a + a {
     padding-right: 2rem;
     color: grey;
 }
+
+.container {
+    padding-bottom: 0.5em;
+}

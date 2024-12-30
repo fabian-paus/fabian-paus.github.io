@@ -3,6 +3,19 @@
     <meta charset="UTF-8">
     <title>Fabian Paus' Curriculum Vitae</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        h2 {
+            margin-bottom: 0.2em;
+        }
+
+        .entry {
+            margin-top: 1em;
+        }
+
+        .list {
+            margin-top: 0.2em;
+        }
+    </style>
 </head>
 <body>
     <header>
@@ -17,7 +30,79 @@
     <div class="container">
         <h1>Fabian Paus' Curriculum Vitae</h1>
 
-        <p>Welcome!</p>
+        <h2>Summary</h2>
+        <hr>
+
+        <div style="display: flex; gap: 1em;">
+        <p>
+            I have multiple years of experience programming in C++ 
+            including the development of backend services as well as robotic motion control and algorithms.
+            I love both the theoretical world of computer science, which I teach at university level, 
+            as well as the low-level optimizations, e.g. optimizing the assembly output of a piece of C++ code. 
+            Currently, I work on identity and access systems based on 
+            <a href="https://www.keycloak.org/">Keycloak</a>.
+        </p>
+        <figure>
+        <img src="img/profile-pic.jpg" alt="A picture of me hiking in the mountains" width="2048" height="1536"
+        style="object-fit: contain; width: 100%; height: auto; padding: 0;">
+        <figcaption>A picture of me hiking in the mountains</figcaption>
+        </figure>
+        </div>
+        
+        <h2>Experience</h2>
+        <hr>
+        
+        <div class="entry">
+            July 2022 - Present: Software Engineer at <a href="https://www.sick.com/">SICK Sensor Intelligence</a>
+            <ul class="list">
+                <li>Identity and access management: <a href="https://www.keycloak.org/">Keycloak</a>, Java</li>
+                <li>Service development: 
+                    <a href="https://aws.amazon.com/de/">AWS</a>, 
+                    <a href="https://angular.dev/">Angular</a>, TypeScript
+                </li>
+            </ul>
+        </div>
+
+        <div class="entry">
+            January 2023 - Present: Private Lecturer at <a href="https://www.dhbw.de/">DHBW Karlsruhe</a>
+            <ul class="list">
+                <li>Lectures about theoretical computer science</li>
+                <li>Data structures, algorithms, state machines and turing machines</li>
+            </ul>
+        </div>
+
+        <div class="entry">
+            August 2016 - June 2022: Researcher at <a href="https://www.kit.edu">Karlsruhe Institute of Technology</a>
+            <ul class="list">
+                <li>Learning to predict the effects of robot actions: 
+                    <a href="https://scholar.google.com/citations?user=asTD7GQAAAAJ">publications</a>,
+                    <a href="https://publikationen.bibliothek.kit.edu/1000148061/148979368">dissertation</a>
+                </li>
+                <li>Software development for robots: 
+                    <a href="https://armarx.humanoids.kit.edu/">ArmarX</a>, C++, <a href="https://www.qt.io/">Qt</a>
+                </li>
+            </ul>
+        </div>
+
+        <div class="entry">
+            March 2016 - June 2016: Software Developer at <a href="https://www.3dis.de/">3DIS GmbH</a>
+            <ul class="list">
+                <li>Collaboration between 3D city visualization, manlift construction and robotics</li>
+                <li>3D mission planning for lifting platforms: 
+                    C++, C#,
+                    <a href="https://h2t.iar.kit.edu/pdf/Paus2017.pdf">publication</a>
+                </li>
+            </ul>
+        </div>
+
+        <div class="entry">
+            August 2010 - February 2016: Software Developer at <a href="https://www.d-velop.de/">d.velop AG</a>
+            <ul class="list">
+                <li>Backend software development for a document management system: C++, SQL</li>
+                <li>Design and implementation of API endpoints</li>
+            </ul>
+        </div>
+
     </div>
 </body>
 </html>
