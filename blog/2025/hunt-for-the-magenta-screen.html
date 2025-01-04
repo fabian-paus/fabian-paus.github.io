@@ -48,7 +48,7 @@
 
         <p>
         What could possibly go wrong in such a simple OpenGL program?
-        My first thought was, that it must be something during the initialization of OpenGL.
+        My first thought was that it must be something during the initialization of OpenGL.
         See, on Windows you have to jump through some hoops to get a modern OpenGL context 
         (<a href="https://www.khronos.org/opengl/wiki/Creating_an_OpenGL_Context_(WGL)"
         >Khronos guide on creating an OpenGL context on Windows</a>)
@@ -106,8 +106,8 @@
         <p>
         At this point, I thought that the problem must be somehow OpenGL related.
         I remembered from the old OpenGL days that debugging was quite frustrating,
-        since every OpenGL could silently fail and you would only realize later that 
-        something must have went wrong.
+        since every OpenGL function could silently fail and you would only realize later that 
+        something went wrong.
         Luckily, modern OpenGL has a simpler way to debug any errors that may occur:
         <a href="https://www.khronos.org/opengl/wiki/Debug_Output">Debug Output</a>
         </p>
@@ -135,7 +135,7 @@
 
         <p>
             Then, we can register the callback and enable debugging.
-            Note: In order to use these function, you need to load them via 
+            Note: In order to use these functions, you need to load them via 
             <a href="https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-wglgetprocaddress">
             <code>wglGetProcAddress</code></a>.
         </p>
@@ -155,7 +155,7 @@ glDebugMessageCallback<span style='color:#808030; '>(</span>ourGlErrorCallback<s
         <p>
             I start the debugger and ... nothing. What?
             That does not really make sense to me.
-            But since I seem to not make progress with the built-in debugging tools,
+            But, since I seem to not make progress with the built-in debugging tools,
             let's get something bigger to investigate why I still cannot see my magenta screen.
         </p>
 
@@ -200,7 +200,7 @@ glDebugMessageCallback<span style='color:#808030; '>(</span>ourGlErrorCallback<s
         At this point, I was getting a bit desperate.
         But this desperation lead me to question some basic things.
         Am I actually rendering any frames? 
-        If my OpenGL is never called, then there would be no errors that the OpenGL debugging could catch.
+        If my OpenGL code is never called, then there would be no errors that the OpenGL debugging could catch.
         Also, RenderDoc could not capture any frames, if there are none.
         So I decided to look into the render and message loop again:
         </p>
@@ -224,7 +224,7 @@ g_running <span style='color:#808030; '>=</span> <span style='color:#800000; fon
 </pre>
         </code>
         <p>
-            That is quite a minimalistic game loop.
+            That is quite a minimalistic render loop.
             It uses the 
             <a href="https://learn.microsoft.com/de-de/windows/win32/api/winuser/nf-winuser-peekmessagew"><code>PeekMessageW</code></a>
             function to query Windows' message queue in a non-blocking fashion.
@@ -239,8 +239,8 @@ g_running <span style='color:#808030; '>=</span> <span style='color:#800000; fon
             It does not trigger. This is the big "duh!" moment.
             I debug into the message loop and see a
             <a href="https://learn.microsoft.com/en-us/windows/win32/gdi/wm-paint">WM_PAINT</a> message.
-            The next message is <code>WM_PAINT</code> again, and again, it does not stop.
-            Why is there in infinite amount of <code>WM_PAINT</code> messages in the message queue?
+            The next message is <code>WM_PAINT</code> again and again. It does not stop.
+            Why is there in infinite amount of <code>WM_PAINT</code> messages in my message queue?
         </p>
 
 
@@ -290,7 +290,7 @@ g_running <span style='color:#808030; '>=</span> <span style='color:#800000; fon
         <p>
             Returning zero indicates that we processed the message.
             However, <code>WM_PAINT</code> expects us to do a little bit more.
-            We get the message, if some region or the whole windows has been marked as dirty, i.e. it needs repainting.
+            We get the message if some region or the whole windows has been marked as dirty, i.e. it needs repainting.
             In a non-OpenGL program, we would identify the dirty region, paint it again and mark it as clean.
             This is done via the
             <a href="https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-beginpaint"><code>BeginPaint</code></a>
