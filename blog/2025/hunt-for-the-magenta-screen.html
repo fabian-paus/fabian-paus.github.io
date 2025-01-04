@@ -44,9 +44,309 @@
         Let's go on a debugging journey to figure out what went wrong here.
         
         
-        <h2>The Journey</h2>
+        <h2>Modern OpenGL Setup</h2>
 
-        <h2>Conclusion</h2>
+        <p>
+        What could possibly go wrong in such a simple OpenGL program?
+        My first thought was, that it must be something during the initialization of OpenGL.
+        See, on Windows you have to jump through some hoops to get a modern OpenGL context 
+        (<a href="https://www.khronos.org/opengl/wiki/Creating_an_OpenGL_Context_(WGL)"
+        >Khronos guide on creating an OpenGL context on Windows</a>)
+        </p>
+        <ul>
+            <li>Create a dummy window</li>
+            <li>Setup some archaic pixel format magic</li>
+            <li>Create a legacy OpenGL context</li>
+            <li>Load modern OpenGL functions</li>
+            <li>Setup a modern OpenGL context</li>
+        </ul>
+        <pre>
+<span style='color:#800000; font-weight:bold; '>static</span> <span style='color:#800000; font-weight:bold; '>void</span> gl_initialize<span style='color:#808030; '>(</span><span style='color:#808030; '>)</span> <span style='color:#800080; '>{</span>
+    <span style='color:#603000; '>HWND</span> dummyWindow <span style='color:#808030; '>=</span> CreateWindowExW<span style='color:#808030; '>(</span>
+        <span style='color:#008c00; '>0</span><span style='color:#808030; '>,</span> <span style='color:#800000; '>L"</span><span style='color:#0000e6; '>STATIC</span><span style='color:#800000; '>"</span><span style='color:#808030; '>,</span> <span style='color:#800000; '>L"</span><span style='color:#0000e6; '>DummyWindow</span><span style='color:#800000; '>"</span><span style='color:#808030; '>,</span> <span style='color:#7d0045; '>WS_OVERLAPPED</span><span style='color:#808030; '>,</span>
+        CW_USEDEFAULT<span style='color:#808030; '>,</span> CW_USEDEFAULT<span style='color:#808030; '>,</span> CW_USEDEFAULT<span style='color:#808030; '>,</span> CW_USEDEFAULT<span style='color:#808030; '>,</span>
+        <span style='color:#7d0045; '>NULL</span><span style='color:#808030; '>,</span> <span style='color:#7d0045; '>NULL</span><span style='color:#808030; '>,</span> <span style='color:#7d0045; '>NULL</span><span style='color:#808030; '>,</span> <span style='color:#7d0045; '>NULL</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    <span style='color:#603000; '>HDC</span> dc <span style='color:#808030; '>=</span> <span style='color:#400000; '>GetDC</span><span style='color:#808030; '>(</span>dummyWindow<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+
+    <span style='color:#400000; '>PIXELFORMATDESCRIPTOR</span> desc <span style='color:#808030; '>=</span> <span style='color:#800080; '>{</span><span style='color:#800080; '>}</span><span style='color:#800080; '>;</span>
+    desc<span style='color:#808030; '>.</span>nSize <span style='color:#808030; '>=</span> <span style='color:#800000; font-weight:bold; '>sizeof</span><span style='color:#808030; '>(</span>desc<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    desc<span style='color:#808030; '>.</span>nVersion <span style='color:#808030; '>=</span> <span style='color:#008c00; '>1</span><span style='color:#800080; '>;</span>
+    desc<span style='color:#808030; '>.</span>dwFlags <span style='color:#808030; '>=</span> PFD_DRAW_TO_WINDOW <span style='color:#808030; '>|</span> PFD_SUPPORT_OPENGL <span style='color:#808030; '>|</span> PFD_DOUBLEBUFFER<span style='color:#800080; '>;</span>
+    desc<span style='color:#808030; '>.</span>iPixelType <span style='color:#808030; '>=</span> PFD_TYPE_RGBA<span style='color:#800080; '>;</span>
+    desc<span style='color:#808030; '>.</span>cColorBits <span style='color:#808030; '>=</span> <span style='color:#008c00; '>24</span><span style='color:#800080; '>;</span>
+
+    <span style='color:#800000; font-weight:bold; '>int</span> format <span style='color:#808030; '>=</span> <span style='color:#400000; '>ChoosePixelFormat</span><span style='color:#808030; '>(</span>dc<span style='color:#808030; '>,</span> <span style='color:#808030; '>&amp;</span>desc<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    <span style='color:#400000; '>DescribePixelFormat</span><span style='color:#808030; '>(</span>dc<span style='color:#808030; '>,</span> format<span style='color:#808030; '>,</span> <span style='color:#800000; font-weight:bold; '>sizeof</span><span style='color:#808030; '>(</span>desc<span style='color:#808030; '>)</span><span style='color:#808030; '>,</span> <span style='color:#808030; '>&amp;</span>desc<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    <span style='color:#400000; '>SetPixelFormat</span><span style='color:#808030; '>(</span>dc<span style='color:#808030; '>,</span> format<span style='color:#808030; '>,</span> <span style='color:#808030; '>&amp;</span>desc<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+
+    <span style='color:#603000; '>HGLRC</span> rc <span style='color:#808030; '>=</span> <span style='color:#400000; '>wglCreateContext</span><span style='color:#808030; '>(</span>dc<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+
+    <span style='color:#400000; '>wglMakeCurrent</span><span style='color:#808030; '>(</span>dc<span style='color:#808030; '>,</span> rc<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+
+    <span style='color:#696969; '>// Load modern OpenGL functions here via wglGetProcAddress</span>
+    wglCreateContextAttribsARB <span style='color:#808030; '>=</span> <span style='color:#808030; '>(</span>wglCreateContextAttribsARBF<span style='color:#808030; '>*</span><span style='color:#808030; '>)</span><span style='color:#400000; '>wglGetProcAddress</span><span style='color:#808030; '>(</span><span style='color:#800000; '>"</span><span style='color:#0000e6; '>wglCreateContextAttribsARB</span><span style='color:#800000; '>"</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    
+    <span style='color:#400000; '>wglMakeCurrent</span><span style='color:#808030; '>(</span>dc<span style='color:#808030; '>,</span> <span style='color:#800000; font-weight:bold; '>nullptr</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    <span style='color:#400000; '>wglDeleteContext</span><span style='color:#808030; '>(</span>rc<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    <span style='color:#400000; '>ReleaseDC</span><span style='color:#808030; '>(</span>dummyWindow<span style='color:#808030; '>,</span> dc<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    <span style='color:#400000; '>DestroyWindow</span><span style='color:#808030; '>(</span>dummyWindow<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+<span style='color:#800080; '>}</span>
+        </pre>
+
+        <p>
+            Maybe something goes wrong during the OpenGL setup.
+            So I added more code to handle all return values of these functions and check for potential errors.
+            It turned out that all functions indicated success, so the OpenGL setup seems to work.
+            Or at least Windows and OpenGL think that it has worked.
+        </p>
+
+
+        <h2>OpenGL Debugging</h2>
+        
+        <p>
+        At this point, I thought that the problem must be somehow OpenGL related.
+        I remembered from the old OpenGL days that debugging was quite frustrating,
+        since every OpenGL could silently fail and you would only realize later that 
+        something must have went wrong.
+        Luckily, modern OpenGL has a simpler way to debug any errors that may occur:
+        <a href="https://www.khronos.org/opengl/wiki/Debug_Output">Debug Output</a>
+        </p>
+
+        <p>
+        First, we define a callback that we can later register to be called for any OpenGL error:
+        </p>
+
+        <code>
+        <pre>
+<span style='color:#800000; font-weight:bold; '>void</span> ourGlErrorCallback<span style='color:#808030; '>(</span><span style='color:#400000; '>GLenum</span> source<span style='color:#808030; '>,</span> <span style='color:#400000; '>GLenum</span> type<span style='color:#808030; '>,</span> <span style='color:#400000; '>GLuint</span> id<span style='color:#808030; '>,</span> <span style='color:#400000; '>GLenum</span> severity<span style='color:#808030; '>,</span>
+    <span style='color:#400000; '>GLsizei</span> length<span style='color:#808030; '>,</span> <span style='color:#800000; font-weight:bold; '>const</span> <span style='color:#800000; font-weight:bold; '>char</span><span style='color:#808030; '>*</span> message<span style='color:#808030; '>,</span> <span style='color:#800000; font-weight:bold; '>const</span> <span style='color:#800000; font-weight:bold; '>void</span><span style='color:#808030; '>*</span> userParam<span style='color:#808030; '>)</span>
+<span style='color:#800080; '>{</span>
+    OutputDebugStringW<span style='color:#808030; '>(</span><span style='color:#800000; '>L"</span><span style='color:#0000e6; '>GL DEBUG: </span><span style='color:#800000; '>"</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    OutputDebugStringA<span style='color:#808030; '>(</span>message<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    OutputDebugStringW<span style='color:#808030; '>(</span><span style='color:#800000; '>L"</span><span style='color:#0f69ff; '>\n</span><span style='color:#800000; '>"</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    <span style='color:#800000; font-weight:bold; '>if</span> <span style='color:#808030; '>(</span>severity <span style='color:#808030; '>=</span><span style='color:#808030; '>=</span> GL_DEBUG_SEVERITY_NOTIFICATION<span style='color:#808030; '>)</span> <span style='color:#800080; '>{</span>
+        <span style='color:#696969; '>// Do not break on debug notifications</span>
+        <span style='color:#800000; font-weight:bold; '>return</span><span style='color:#800080; '>;</span>
+    <span style='color:#800080; '>}</span>
+    <span style='color:#400000; '>DebugBreak</span><span style='color:#808030; '>(</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+<span style='color:#800080; '>}</span>
+        </pre>
+        </code>
+
+        <p>
+            Then, we can register the callback and enable debugging.
+            Note: In order to use these function, you need to load them via 
+            <a href="https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-wglgetprocaddress">
+            <code>wglGetProcAddress</code></a>.
+        </p>
+        <code>
+        <pre>
+glDebugMessageCallback<span style='color:#808030; '>(</span>ourGlErrorCallback<span style='color:#808030; '>,</span> <span style='color:#800000; font-weight:bold; '>nullptr</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+<span style='color:#400000; '>glEnable</span><span style='color:#808030; '>(</span>GL_DEBUG_OUTPUT_SYNCHRONOUS<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+</pre>
+        </code>
+        <p>
+            Now, we should get a log message everytime an OpenGL error occurs and
+            our debugger should break if it is anything more than a notification.
+            Since we enabled the synchronous debug mode, we should be able 
+            to see the culprit by simple going up the stack trace once the debugger breaks.
+        </p>
+
+        <p>
+            I start the debugger and ... nothing. What?
+            That does not really make sense to me.
+            But since I seem to not make progress with the built-in debugging tools,
+            let's get something bigger to investigate why I still cannot see my magenta screen.
+        </p>
+
+
+        <h2>Consult RenderDoc</h2>
+
+        <p>
+        <a href="https://renderdoc.org/">RenderDoc</a> is a powerful graphics debugger
+        that allows developers to inspect the rendering state of an application.
+        It supports all popular rendering APIs including OpenGL.
+        So I downloaded the most recent version and set up the launch settings for
+        my OpenGL application.
+        </p>
+
+        <figure>
+            <img src="./img/2025-01-04_render-doc-launch.png" 
+              alt="launch settings for RenderDoc" 
+              style="object-fit: contain;">
+            <figcaption>RenderDoc launch settings for my OpenGL application</figcaption>
+        </figure>
+
+        <p>
+            Without hesitation, I click on the launch button.
+            But all the buttons to capture and analyze a frame a greyed out.
+            Furthermore, RenderDoc reports "API: None". 
+            This means, it does not even detect that we are using OpenGL.
+            Although all our calls to OpenGL seem to succeed without any errors.
+            Googling for the "API: None" behavior did not yield any fruitful results.
+            This is becoming quite the rabbit hole.
+        </p>
+
+        <figure>
+            <img src="./img/2025-01-04_render-doc-api-none.png" 
+              alt="RenderDoc displays API: None" 
+              style="object-fit: contain;">
+            <figcaption>RenderDoc cannot identify any rendering API</figcaption>
+        </figure>
+
+        <h2>The Windows Message Loop</h2>
+
+        <p>
+        At this point, I was getting a bit desperate.
+        But this desperation lead me to question some basic things.
+        Am I actually rendering any frames? 
+        If my OpenGL is never called, then there would be no errors that the OpenGL debugging could catch.
+        Also, RenderDoc could not capture any frames, if there are none.
+        So I decided to look into the render and message loop again:
+        </p>
+
+        <code>
+            <pre>
+g_running <span style='color:#808030; '>=</span> <span style='color:#800000; font-weight:bold; '>true</span><span style='color:#800080; '>;</span>
+<span style='color:#800000; font-weight:bold; '>while</span> <span style='color:#808030; '>(</span>g_running<span style='color:#808030; '>)</span>
+<span style='color:#800080; '>{</span>
+    <span style='color:#603000; '>MSG</span> msg <span style='color:#808030; '>=</span> <span style='color:#800080; '>{</span><span style='color:#800080; '>}</span><span style='color:#800080; '>;</span>
+    <span style='color:#800000; font-weight:bold; '>while</span> <span style='color:#808030; '>(</span>PeekMessageW<span style='color:#808030; '>(</span><span style='color:#808030; '>&amp;</span>msg<span style='color:#808030; '>,</span> window<span style='color:#808030; '>,</span> <span style='color:#008c00; '>0</span><span style='color:#808030; '>,</span> <span style='color:#008c00; '>0</span><span style='color:#808030; '>,</span> PM_REMOVE<span style='color:#808030; '>)</span><span style='color:#808030; '>)</span>
+    <span style='color:#800080; '>{</span>
+        <span style='color:#400000; '>TranslateMessage</span><span style='color:#808030; '>(</span><span style='color:#808030; '>&amp;</span>msg<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+        DispatchMessageW<span style='color:#808030; '>(</span><span style='color:#808030; '>&amp;</span>msg<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    <span style='color:#800080; '>}</span>
+
+    <span style='color:#400000; '>glClearColor</span><span style='color:#808030; '>(</span><span style='color:#008000; '>1.0</span><span style='color:#006600; '>f</span><span style='color:#808030; '>,</span> <span style='color:#008000; '>0.0</span><span style='color:#006600; '>f</span><span style='color:#808030; '>,</span> <span style='color:#008000; '>1.0</span><span style='color:#006600; '>f</span><span style='color:#808030; '>,</span> <span style='color:#008000; '>1.0</span><span style='color:#006600; '>f</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    <span style='color:#400000; '>glClear</span><span style='color:#808030; '>(</span>GL_COLOR_BUFFER_BIT <span style='color:#808030; '>|</span> GL_DEPTH_BUFFER_BIT<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    <span style='color:#400000; '>SwapBuffers</span><span style='color:#808030; '>(</span>deviceContext<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+<span style='color:#800080; '>}</span> 
+</pre>
+        </code>
+        <p>
+            That is quite a minimalistic game loop.
+            It uses the 
+            <a href="https://learn.microsoft.com/de-de/windows/win32/api/winuser/nf-winuser-peekmessagew"><code>PeekMessageW</code></a>
+            function to query Windows' message queue in a non-blocking fashion.
+            The <code>PM_REMOVE</code> parameter tells <code>PeekMessageW</code> to remove the message from the queue.
+            We handle all messages that are currently in the queue.
+            Then, we proceed to do our OpenGL rendering and, finally, swap our rendered image to the screen 
+            via <a href="https://learn.microsoft.com/de-de/windows/win32/api/wingdi/nf-wingdi-swapbuffers"><code>SwapBuffers</code></a>.
+        </p>
+
+        <p>
+            I start the debugger and put a break point on the <code>glClearColor</code> line.
+            It does not trigger. This is the big "duh!" moment.
+            I debug into the message loop and see a
+            <a href="https://learn.microsoft.com/en-us/windows/win32/gdi/wm-paint">WM_PAINT</a> message.
+            The next message is <code>WM_PAINT</code> again, and again, it does not stop.
+            Why is there in infinite amount of <code>WM_PAINT</code> messages in the message queue?
+        </p>
+
+
+        <h2>Some Messages are More Equal than Others</h2>
+
+        <p>
+            If we look into the documentation for 
+            <a href="https://learn.microsoft.com/en-us/windows/win32/gdi/wm-paint">WM_PAINT</a>,
+            we can directly find something that hints at our problem: 
+        </p>
+        <blockquote>
+            The WM_PAINT message is sent when the system or another application makes a request 
+            to paint a portion of an application's window. 
+            The message is sent when the UpdateWindow or RedrawWindow function is called, 
+            <strong>or by the DispatchMessage function when the application obtains a WM_PAINT message 
+            by using the GetMessage or PeekMessage function</strong>.
+        </blockquote>
+        <p>
+            Apperantly the 
+            <a href="https://learn.microsoft.com/de-de/windows/win32/api/winuser/nf-winuser-dispatchmessagew"><code>DispatchMessageW</code></a>
+            function can send another <code>WM_PAINT</code> message if I just received one.
+            Why would it do that?
+            Because I did not follow the prescribed behavior when handling the message.
+            Here is a shortened version of my 
+            <a href="https://learn.microsoft.com/en-us/windows/win32/winmsg/window-procedures">window procedure</a>:
+        </p>
+        <code>
+            <pre>
+<span style='color:#603000; '>LRESULT</span> <span style='color:#603000; '>CALLBACK</span> MainWndProc<span style='color:#808030; '>(</span><span style='color:#603000; '>HWND</span> window<span style='color:#808030; '>,</span> <span style='color:#603000; '>UINT</span> message<span style='color:#808030; '>,</span> <span style='color:#603000; '>WPARAM</span> wParam<span style='color:#808030; '>,</span> <span style='color:#603000; '>LPARAM</span> lParam<span style='color:#808030; '>)</span>
+<span style='color:#800080; '>{</span>
+    <span style='color:#800000; font-weight:bold; '>switch</span> <span style='color:#808030; '>(</span>message<span style='color:#808030; '>)</span>
+    <span style='color:#800080; '>{</span>
+    <span style='color:#800000; font-weight:bold; '>case </span><span style='color:#7d0045; '>WM_CREATE</span><span style='color:#e34adc; '>:</span>
+        <span style='color:#800000; font-weight:bold; '>return</span> <span style='color:#008c00; '>0</span><span style='color:#800080; '>;</span>
+
+    <span style='color:#800000; font-weight:bold; '>case </span><span style='color:#7d0045; '>WM_PAINT</span><span style='color:#e34adc; '>:</span>
+        <span style='color:#800000; font-weight:bold; '>return</span> <span style='color:#008c00; '>0</span><span style='color:#800080; '>;</span>
+    
+    <span style='color:#696969; '>// Process other messages. </span>
+
+<span style='color:#e34adc; '>    </span><span style='color:#800000; font-weight:bold; '>default</span><span style='color:#e34adc; '>:</span>
+        <span style='color:#800000; font-weight:bold; '>return</span> <span style='color:#400000; '>DefWindowProc</span><span style='color:#808030; '>(</span>window<span style='color:#808030; '>,</span> message<span style='color:#808030; '>,</span> wParam<span style='color:#808030; '>,</span> lParam<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    <span style='color:#800080; '>}</span>
+<span style='color:#800080; '>}</span>
+</pre>
+        </code>
+        <p>
+            Returning zero indicates that we processed the message.
+            However, <code>WM_PAINT</code> expects us to do a little bit more.
+            We get the message, if some region or the whole windows has been marked as dirty, i.e. it needs repainting.
+            In a non-OpenGL program, we would identify the dirty region, paint it again and mark it as clean.
+            This is done via the
+            <a href="https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-beginpaint"><code>BeginPaint</code></a>
+            and
+            <a href="https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-endpaint"><code>EndPaint</code></a>
+            functions.
+            If we do not do this, Windows thinks that our windows stays dirty and decides to generate a new <code>WM_PAINT</code>
+            message again.
+        </p>
+
+        <p>
+            To fix this, we need to mark our window as repainted:
+        </p>
+        <code>
+            <pre>
+<span style='color:#800000; font-weight:bold; '>case </span><span style='color:#7d0045; '>WM_PAINT</span><span style='color:#e34adc; '>:</span>
+<span style='color:#800080; '>{</span>
+    <span style='color:#603000; '>PAINTSTRUCT</span> ps<span style='color:#800080; '>;</span>
+    <span style='color:#603000; '>HDC</span> dc <span style='color:#808030; '>=</span> <span style='color:#400000; '>BeginPaint</span><span style='color:#808030; '>(</span>window<span style='color:#808030; '>,</span> <span style='color:#808030; '>&amp;</span>ps<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    <span style='color:#400000; '>EndPaint</span><span style='color:#808030; '>(</span>window<span style='color:#808030; '>,</span> <span style='color:#808030; '>&amp;</span>ps<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    <span style='color:#800000; font-weight:bold; '>return</span> <span style='color:#008c00; '>0</span><span style='color:#800080; '>;</span>
+<span style='color:#800080; '>}</span>
+</pre>
+        </code>
+
+        <p>Alternatively, we could have let Windows handle this with the 
+        <a href="https://learn.microsoft.com/de-de/windows/win32/api/winuser/nf-winuser-defwindowprocw">default window procedure</a>:
+        </p>
+        <code>
+            <pre>
+<span style='color:#800000; font-weight:bold; '>case </span><span style='color:#7d0045; '>WM_PAINT</span><span style='color:#e34adc; '>:</span>
+    <span style='color:#800000; font-weight:bold; '>return</span> DefWindowProcW<span style='color:#808030; '>(</span>window<span style='color:#808030; '>,</span> message<span style='color:#808030; '>,</span> wParam<span style='color:#808030; '>,</span> lParam<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+</pre>
+        </code> 
+
+        <h2>A Long Journey's End</h2>
+
+        <p>
+            Finally, we have achieved our goal, a magenta window:
+        </p>
+        <figure>
+            <img src="./img/2025-01-04_magenta-window.png" 
+              alt="a magenta window" 
+              style="object-fit: contain;">
+            <figcaption>A magenta window in all its glory</figcaption>
+        </figure>
+
+        <p>
+            So what have I learned on this journey?
+            Honestly, I am not sure. 
+            It seems that my misunderstanding of how Windows handles painting 
+            has lead my down the rabbit hole of OpenGL debugging.
+            In the end, the bug had nothing to do with OpenGL.
+            Nonetheless, I feel a little bit more prepared for any OpenGL errors
+            and debugging sessions that I might face in the future.
+        </p>
     </div>
 </body>
 </html>
