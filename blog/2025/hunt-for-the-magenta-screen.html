@@ -1,0 +1,52 @@
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Fabian Paus' Blog</title>
+    <link rel="stylesheet" href="../../style.css">
+</head>
+<body>
+    <header>
+        <a class="logo" href="/">Home</a>
+        <nav>
+            <a href="/blog">Blog</a>
+            <a href="/cv.html">CV</a>
+            <a href="https://github.com/fabian-paus">GitHub</a>
+        </nav>
+    </header>
+
+    <div class="container">
+        <h1>The Hunt for the Magenta Screen</h1>
+        <ul class="tags">
+            <li>WinAPI</li>
+            <li>OpenGL</li>
+            <li>C++</li>
+        </ul>
+
+        <p>
+        I recently got the idea of getting into graphics programming again
+        to learn a bit more about modern graphics APIs.
+        So I started to create a window using the Windows API and setup an OpenGL context.
+        Before drawing even a triangle, I wanted to just see a simple magenta background color:
+        <pre>
+<span style='color:#400000; '>glClearColor</span><span style='color:#808030; '>(</span><span style='color:#008000; '>1.0</span><span style='color:#006600; '>f</span><span style='color:#808030; '>,</span> <span style='color:#008000; '>0.0</span><span style='color:#006600; '>f</span><span style='color:#808030; '>,</span> <span style='color:#008000; '>1.0</span><span style='color:#006600; '>f</span><span style='color:#808030; '>,</span> <span style='color:#008000; '>1.0</span><span style='color:#006600; '>f</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+<span style='color:#400000; '>glClear</span><span style='color:#808030; '>(</span>GL_COLOR_BUFFER_BIT<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+<span style='color:#400000; '>SwapBuffers</span><span style='color:#808030; '>(</span>deviceContext<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+</pre>
+        </p>
+        However, my window remained white and showed black borders when I resized it.
+        <figure>
+            <img src="./img/2025-01-04_white-window.png" 
+              alt="left: white window; right: white window with black bar" 
+              width="707" height="233">
+            <figcaption>On the left: The not-so-magenta window; on the right: a black border after resizing</figcaption>
+        </figure>
+
+        Let's go on a debugging journey to figure out what went wrong here.
+        
+        
+        <h2>The Journey</h2>
+
+        <h2>Conclusion</h2>
+    </div>
+</body>
+</html>
