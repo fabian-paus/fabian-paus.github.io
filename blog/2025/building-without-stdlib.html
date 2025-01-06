@@ -151,7 +151,10 @@ fatal error LNK1120: 1 unresolved externals
         </code>
 
         <p>
-            Therefore, you should mark <code>memset</code> as a normal function
+            Therefore, you should mark <code>memset</code> as a 
+            normal function via 
+            <a href="https://learn.microsoft.com/en-us/cpp/preprocessor/function-c-cpp"
+            ><code>#pragma function</code></a>
             before implementing it:
         </p>
         <code>
@@ -196,17 +199,268 @@ fatal error LNK1120: 1 unresolved externals
             <pre>
 <span style='color:#696969; '>// This variable is expected by the linker if floats or doubles are used</span>
 <span style='color:#800000; font-weight:bold; '>extern</span> <span style='color:#800000; '>"</span><span style='color:#0000e6; '>C</span><span style='color:#800000; '>"</span> <span style='color:#800000; font-weight:bold; '>int</span> _fltused <span style='color:#808030; '>=</span> <span style='color:#008c00; '>0</span><span style='color:#800080; '>;</span>
-            </pre>
+</pre>
         </code>
 
 
+        <h2>Getting on the Same Wave Length</h2>
+
+        <p>
+        Now that we have a program that compiles, links and runs without the standard library,
+        we can focus on the main antogonist of this article: The <code>sin</code> function.
+        Let's try calling the <code>sin</code> function results from <code>math.h</code>:
+        </p>
+        <code>
+            <pre>
+ <span style='color:#004a43; '>#</span><span style='color:#004a43; '>include </span><span style='color:#800000; '>&lt;</span><span style='color:#40015a; '>math.h</span><span style='color:#800000; '>></span>
+
+<span style='color:#800000; font-weight:bold; '>int</span> f<span style='color:#808030; '>(</span><span style='color:#808030; '>)</span> <span style='color:#800080; '>{</span>
+    <span style='color:#800000; font-weight:bold; '>double</span> a <span style='color:#808030; '>=</span> <span style='color:#603000; '>sin</span><span style='color:#808030; '>(</span><span style='color:#008000; '>0.0</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+<span style='color:#800080; '>}</span></pre>
+        </code>
+        <p>
+            As expected this yields the following linker error:
+        </p>
+        <code><pre>error LNK2019: unresolved external symbol sin referenced in function "int __cdecl f(void)"</pre></code>
 
 
-        <h2>The Naive Approach</h2>
+        <h3>Intrinsics to the Rescue?</h3>
+        <p>
+            Remember the <a href="https://learn.microsoft.com/en-us/cpp/build/reference/oi-generate-intrinsic-functions"
+            ><code>/Oi</code></a> compiler flag to enable intrinsic functions?
+            Maybe it can help us by inlining the <code>sin</code> function.
+            If we look at the 
+            <a href="https://learn.microsoft.com/en-us/cpp/intrinsics/intrinsics-available-on-all-architectures#ucrt-intrinsics"
+            >MSVC intrinsics table</a>, we can see that <code>sin</code> has an intrinsic form
+            on all architectures.
+            So let's enable <code>/Oi</code> and ... nothing changes.
+        </p>
 
-        <h2>Intrinsics to the Rescue?</h2>
+        <p>
+            Another intrinsic we might consider is 
+            <a href="https://www.intel.com/content/www/us/en/docs/cpp-compiler/developer-guide-reference/2021-10/mm-sin-ps-mm256-sin-ps.html"
+            ><code>_mm_sin_ps</code></a> from the 
+            <a href="https://en.wikipedia.org/wiki/Streaming_SIMD_Extensions">SSE</a> instruction set.
+            It actually calculates the <code>sin</code> for multiple values at a time.
+            But we can just extract a single value later:
+        </p>
+        <code>
+            <pre>
+<span style='color:#004a43; '>#</span><span style='color:#004a43; '>include </span><span style='color:#800000; '>&lt;</span><span style='color:#40015a; '>immintrin.h</span><span style='color:#800000; '>></span>
 
-        <h2>AVX2 has a Solution?</h2>
+<span style='color:#800000; font-weight:bold; '>float</span> <span style='color:#603000; '>sin</span><span style='color:#808030; '>(</span><span style='color:#800000; font-weight:bold; '>float</span> x<span style='color:#808030; '>)</span> <span style='color:#800080; '>{</span>
+    __m128 x4 <span style='color:#808030; '>=</span> _mm_set1_ps<span style='color:#808030; '>(</span>x<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span> <span style='color:#696969; '>// Put x into all four lanes</span>
+    __m128 y4 <span style='color:#808030; '>=</span> _mm_sin_ps<span style='color:#808030; '>(</span>x4<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span> <span style='color:#696969; '>// Calculate sin(x) for all lanes</span>
+    <span style='color:#800000; font-weight:bold; '>return</span> <span style='color:#808030; '>*</span><span style='color:#808030; '>(</span><span style='color:#800000; font-weight:bold; '>float</span><span style='color:#808030; '>*</span><span style='color:#808030; '>)</span><span style='color:#808030; '>&amp;</span>y4<span style='color:#800080; '>;</span>        <span style='color:#696969; '>// Extract the first lane</span>
+<span style='color:#800080; '>}</span>
+            </pre>
+        </code>
+
+        <p>
+            Let's give it a try and see:
+        </p>
+        <code>
+            <pre>
+error LNK2019: unresolved external symbol __vdecl_sinf4 referenced in function 
+  "float __cdecl sin(float)" (?sin@@YAMM@Z)
+fatal error LNK1120: 1 unresolved externals
+            </pre>
+        </code>
+
+        <p>
+            What is this weird function <code>__vdecl_sinf4</code>?
+            It seems that although we are using the intrinsics directly,
+            the compiler still inserted a function call into another library.
+            If we link against the standard library, we can inspect the 
+            generated assembly to see the call:
+        </p>
+        <code>
+            <pre>
+float sin(float x) {
+
+00007FF681A634A0  vmovss      dword ptr [rsp+8],xmm0  
+00007FF681A634A6  sub         rsp,68h  
+
+    __m128 x4 = _mm_set1_ps(x); // Put x into all four lanes
+
+00007FF681A634AA  vmovss      xmm0,dword ptr [x]  
+00007FF681A634B0  vbroadcastss xmm0,xmm0  
+00007FF681A634B5  vmovups     xmmword ptr [rsp+20h],xmm0  
+00007FF681A634BB  vmovups     xmm0,xmmword ptr [rsp+20h]  
+00007FF681A634C1  vmovups     xmmword ptr [x4],xmm0  
+
+    __m128 y4 = _mm_sin_ps(x4); // Calculate sin(x) for all lanes
+
+00007FF681A634C7  vmovups     xmm0,xmmword ptr [x4]  
+00007FF681A634CD  call        __vdecl_sinf4 (07FF681A64720h)  
+00007FF681A634D2  vmovups     xmmword ptr [rsp+40h],xmm0  
+00007FF681A634D8  vmovups     xmm0,xmmword ptr [rsp+40h]  
+00007FF681A634DE  vmovups     xmmword ptr [y4],xmm0  
+
+    return *(float*)&y4;        // Extract the first lane
+    
+00007FF681A634E4  vmovss      xmm0,dword ptr [y4]  
+}</pre>
+        </code>
+
+        <p>
+            We can clearly see, that the code is calling into the function  
+            <code>__vdecl_sinf4</code>.
+            If we try to debug into the function,
+            the debugger tries to open a file named <code>svml_ssinf4_dispatch.asm</code>.
+            That might give us a hint of what is going on.
+            A quick Google search reveals 
+            Intel's <a href="https://www.intel.com/content/www/us/en/docs/cpp-compiler/developer-guide-reference/2021-8/intrinsics-for-short-vector-math-library-ops.html"
+            >Short Vector Math Library</a> (SVML).
+            It seems that <code>_mm_sin_ps</code> is not actually an instruction that an
+            x86 CPU can run.
+            Rather the intrinsic is implemented as part of an Intel library.
+            We could have seen this in the 
+            <a href="https://www.intel.com/content/www/us/en/docs/intrinsics-guide/index.html#text=sin_ps&ig_expand=6089"
+            >Intel intrinsics guide</a>
+            where it is marked as sequence.
+            This meens that it does not correspond to a single CPU instruction but is 
+            implemented as a sequence of instructions.
+        </p>
+
+        <figure>
+            <img src="./img/2025-01-06_intel-sin-ps.png" 
+              alt="Intel intrinsics guide entry for _mm_sin_ps" 
+              style="object-fit: contain;">
+            <figcaption>_mm_sin_ps's instruction is marked as sequence</figcaption>
+        </figure>
+
+        <h3>Manual Implementation</h3>
+
+        <p>
+            This leaves us with no other otion than to implement our own <code>sin</code> function.
+            I based my implementation on the 
+            <a href="https://github.com/reyoung/avx_mathfun">avx_mathfun</a> repository on GitHub.
+        </p>
+
+        <code>
+            <pre>
+<span style='color:#004a43; '>#</span><span style='color:#004a43; '>include </span><span style='color:#800000; '>&lt;</span><span style='color:#40015a; '>immintrin.h</span><span style='color:#800000; '>></span>
+
+__m256 mm256_sincos_ps<span style='color:#808030; '>(</span>__m256 x<span style='color:#808030; '>,</span> __m256<span style='color:#808030; '>*</span> c<span style='color:#808030; '>)</span> <span style='color:#800080; '>{</span>
+    __m256 signBitSin <span style='color:#808030; '>=</span> x<span style='color:#800080; '>;</span>
+    
+    <span style='color:#696969; '>// Take the absolute value</span>
+    __m256 invSignMask <span style='color:#808030; '>=</span> _mm256_castsi256_ps<span style='color:#808030; '>(</span>_mm256_set1_epi32<span style='color:#808030; '>(</span><span style='color:#808030; '>(</span><span style='color:#800000; font-weight:bold; '>int</span><span style='color:#808030; '>)</span><span style='color:#808030; '>~</span><span style='color:#008000; '>0x80000000</span><span style='color:#808030; '>)</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    x <span style='color:#808030; '>=</span> _mm256_and_ps<span style='color:#808030; '>(</span>x<span style='color:#808030; '>,</span> invSignMask<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+
+    <span style='color:#696969; '>// Extract the sign bit (most significant bit)</span>
+    __m256 signMask <span style='color:#808030; '>=</span> _mm256_castsi256_ps<span style='color:#808030; '>(</span>_mm256_set1_epi32<span style='color:#808030; '>(</span><span style='color:#008000; '>0x80000000</span><span style='color:#808030; '>)</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    signBitSin <span style='color:#808030; '>=</span> _mm256_and_ps<span style='color:#808030; '>(</span>signBitSin<span style='color:#808030; '>,</span> signMask<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+
+    <span style='color:#696969; '>// Scale by (4 / PI)</span>
+    __m256 fourDivPi <span style='color:#808030; '>=</span> _mm256_set1_ps<span style='color:#808030; '>(</span><span style='color:#008000; '>1.27323954473516</span><span style='color:#006600; '>f</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    __m256 y <span style='color:#808030; '>=</span> _mm256_mul_ps<span style='color:#808030; '>(</span>x<span style='color:#808030; '>,</span> fourDivPi<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    
+    <span style='color:#696969; '>// Store the integer part of y in imm2 </span>
+    __m256i imm2 <span style='color:#808030; '>=</span> _mm256_cvttps_epi32<span style='color:#808030; '>(</span>y<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+
+    <span style='color:#696969; '>// j = (j+1) &amp; (~1)</span>
+    imm2 <span style='color:#808030; '>=</span> _mm256_add_epi32<span style='color:#808030; '>(</span>imm2<span style='color:#808030; '>,</span> _mm256_set1_epi32<span style='color:#808030; '>(</span><span style='color:#008c00; '>1</span><span style='color:#808030; '>)</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    imm2 <span style='color:#808030; '>=</span> _mm256_and_si256<span style='color:#808030; '>(</span>imm2<span style='color:#808030; '>,</span> _mm256_set1_epi32<span style='color:#808030; '>(</span><span style='color:#808030; '>~</span><span style='color:#008c00; '>1</span><span style='color:#808030; '>)</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+
+    y <span style='color:#808030; '>=</span> _mm256_cvtepi32_ps<span style='color:#808030; '>(</span>imm2<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    __m256i imm4 <span style='color:#808030; '>=</span> imm2<span style='color:#800080; '>;</span>
+
+    <span style='color:#696969; '>// Get the swap sign flag for the sine </span>
+    __m256i imm0 <span style='color:#808030; '>=</span> _mm256_and_si256<span style='color:#808030; '>(</span>imm2<span style='color:#808030; '>,</span> _mm256_set1_epi32<span style='color:#808030; '>(</span><span style='color:#008c00; '>4</span><span style='color:#808030; '>)</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    imm0 <span style='color:#808030; '>=</span> _mm256_slli_epi32<span style='color:#808030; '>(</span>imm0<span style='color:#808030; '>,</span> <span style='color:#008c00; '>29</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    __m256 swapSignBitSin <span style='color:#808030; '>=</span> _mm256_castsi256_ps<span style='color:#808030; '>(</span>imm0<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+
+    <span style='color:#696969; '>// Get the polynom selection mask for the sine</span>
+    imm2 <span style='color:#808030; '>=</span> _mm256_and_si256<span style='color:#808030; '>(</span>imm2<span style='color:#808030; '>,</span> _mm256_set1_epi32<span style='color:#808030; '>(</span><span style='color:#008c00; '>2</span><span style='color:#808030; '>)</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    imm2 <span style='color:#808030; '>=</span> _mm256_cmpeq_epi32<span style='color:#808030; '>(</span>imm2<span style='color:#808030; '>,</span> _mm256_set1_epi32<span style='color:#808030; '>(</span><span style='color:#008c00; '>0</span><span style='color:#808030; '>)</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    __m256 polynomMask <span style='color:#808030; '>=</span> _mm256_castsi256_ps<span style='color:#808030; '>(</span>imm2<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+
+    <span style='color:#696969; '>// The magic pass: "Extended precision modular arithmetic"</span>
+    <span style='color:#696969; '>//   x = ((x - y * DP1) - y * DP2) - y * DP3; </span>
+    __m256 xmm1 <span style='color:#808030; '>=</span> _mm256_set1_ps<span style='color:#808030; '>(</span><span style='color:#808030; '>-</span><span style='color:#008000; '>0.78515625</span><span style='color:#006600; '>f</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span> <span style='color:#696969; '>// DP1</span>
+    __m256 xmm2 <span style='color:#808030; '>=</span> _mm256_set1_ps<span style='color:#808030; '>(</span><span style='color:#808030; '>-</span><span style='color:#008000; '>2.4187564849853515625e-4</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span> <span style='color:#696969; '>// DP2</span>
+    __m256 xmm3 <span style='color:#808030; '>=</span> _mm256_set1_ps<span style='color:#808030; '>(</span><span style='color:#808030; '>-</span><span style='color:#008000; '>3.77489497744594108e-8</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span> <span style='color:#696969; '>// DP3</span>
+    xmm1 <span style='color:#808030; '>=</span> _mm256_mul_ps<span style='color:#808030; '>(</span>y<span style='color:#808030; '>,</span> xmm1<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    xmm2 <span style='color:#808030; '>=</span> _mm256_mul_ps<span style='color:#808030; '>(</span>y<span style='color:#808030; '>,</span> xmm2<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    xmm3 <span style='color:#808030; '>=</span> _mm256_mul_ps<span style='color:#808030; '>(</span>y<span style='color:#808030; '>,</span> xmm3<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    x <span style='color:#808030; '>=</span> _mm256_add_ps<span style='color:#808030; '>(</span>x<span style='color:#808030; '>,</span> xmm1<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    x <span style='color:#808030; '>=</span> _mm256_add_ps<span style='color:#808030; '>(</span>x<span style='color:#808030; '>,</span> xmm2<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    x <span style='color:#808030; '>=</span> _mm256_add_ps<span style='color:#808030; '>(</span>x<span style='color:#808030; '>,</span> xmm3<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+
+    imm4 <span style='color:#808030; '>=</span> _mm256_sub_epi32<span style='color:#808030; '>(</span>imm4<span style='color:#808030; '>,</span> _mm256_set1_epi32<span style='color:#808030; '>(</span><span style='color:#008c00; '>2</span><span style='color:#808030; '>)</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    imm4 <span style='color:#808030; '>=</span> _mm256_andnot_si256<span style='color:#808030; '>(</span>imm4<span style='color:#808030; '>,</span> _mm256_set1_epi32<span style='color:#808030; '>(</span><span style='color:#008c00; '>4</span><span style='color:#808030; '>)</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    imm4 <span style='color:#808030; '>=</span> _mm256_slli_epi32<span style='color:#808030; '>(</span>imm4<span style='color:#808030; '>,</span> <span style='color:#008c00; '>29</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+
+    __m256 signBitCos <span style='color:#808030; '>=</span> _mm256_castsi256_ps<span style='color:#808030; '>(</span>imm4<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+
+    signBitSin <span style='color:#808030; '>=</span> _mm256_xor_ps<span style='color:#808030; '>(</span>signBitSin<span style='color:#808030; '>,</span> swapSignBitSin<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+
+    <span style='color:#696969; '>// Evaluate the first polynom  (0 &lt;= x &lt;= Pi/4)</span>
+    __m256 z <span style='color:#808030; '>=</span> _mm256_mul_ps<span style='color:#808030; '>(</span>x<span style='color:#808030; '>,</span> x<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    y <span style='color:#808030; '>=</span> _mm256_set1_ps<span style='color:#808030; '>(</span><span style='color:#008000; '>2.443315711809948E-005</span><span style='color:#006600; '>f</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span> <span style='color:#696969; '>// cos coefficient p0</span>
+
+    y <span style='color:#808030; '>=</span> _mm256_mul_ps<span style='color:#808030; '>(</span>y<span style='color:#808030; '>,</span> z<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    y <span style='color:#808030; '>=</span> _mm256_add_ps<span style='color:#808030; '>(</span>y<span style='color:#808030; '>,</span> _mm256_set1_ps<span style='color:#808030; '>(</span><span style='color:#808030; '>-</span><span style='color:#008000; '>1.388731625493765E-003</span><span style='color:#006600; '>f</span><span style='color:#808030; '>)</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span> <span style='color:#696969; '>// cos coefficient p1</span>
+    y <span style='color:#808030; '>=</span> _mm256_mul_ps<span style='color:#808030; '>(</span>y<span style='color:#808030; '>,</span> z<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    y <span style='color:#808030; '>=</span> _mm256_add_ps<span style='color:#808030; '>(</span>y<span style='color:#808030; '>,</span> _mm256_set1_ps<span style='color:#808030; '>(</span><span style='color:#008000; '>4.166664568298827E-002</span><span style='color:#006600; '>f</span><span style='color:#808030; '>)</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span> <span style='color:#696969; '>// cos coefficient p2</span>
+    y <span style='color:#808030; '>=</span> _mm256_mul_ps<span style='color:#808030; '>(</span>y<span style='color:#808030; '>,</span> z<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    y <span style='color:#808030; '>=</span> _mm256_mul_ps<span style='color:#808030; '>(</span>y<span style='color:#808030; '>,</span> z<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    __m256 tmp <span style='color:#808030; '>=</span> _mm256_mul_ps<span style='color:#808030; '>(</span>z<span style='color:#808030; '>,</span> _mm256_set1_ps<span style='color:#808030; '>(</span><span style='color:#008000; '>0.5</span><span style='color:#006600; '>f</span><span style='color:#808030; '>)</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    y <span style='color:#808030; '>=</span> _mm256_sub_ps<span style='color:#808030; '>(</span>y<span style='color:#808030; '>,</span> tmp<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    y <span style='color:#808030; '>=</span> _mm256_add_ps<span style='color:#808030; '>(</span>y<span style='color:#808030; '>,</span> _mm256_set1_ps<span style='color:#808030; '>(</span><span style='color:#008c00; '>1</span><span style='color:#808030; '>)</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+
+    <span style='color:#696969; '>// Evaluate the second polynom  (Pi/4 &lt;= x &lt;= 0)</span>
+    __m256 y2 <span style='color:#808030; '>=</span> _mm256_set1_ps<span style='color:#808030; '>(</span><span style='color:#808030; '>-</span><span style='color:#008000; '>1.9515295891E-4</span><span style='color:#006600; '>f</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span> <span style='color:#696969; '>// sin coefficient p0</span>
+    y2 <span style='color:#808030; '>=</span> _mm256_mul_ps<span style='color:#808030; '>(</span>y2<span style='color:#808030; '>,</span> z<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    y2 <span style='color:#808030; '>=</span> _mm256_add_ps<span style='color:#808030; '>(</span>y2<span style='color:#808030; '>,</span> _mm256_set1_ps<span style='color:#808030; '>(</span><span style='color:#008000; '>8.3321608736E-3</span><span style='color:#006600; '>f</span><span style='color:#808030; '>)</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span> <span style='color:#696969; '>// sin coefficient p1</span>
+    y2 <span style='color:#808030; '>=</span> _mm256_mul_ps<span style='color:#808030; '>(</span>y2<span style='color:#808030; '>,</span> z<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    y2 <span style='color:#808030; '>=</span> _mm256_add_ps<span style='color:#808030; '>(</span>y2<span style='color:#808030; '>,</span> _mm256_set1_ps<span style='color:#808030; '>(</span><span style='color:#808030; '>-</span><span style='color:#008000; '>1.6666654611E-1</span><span style='color:#006600; '>f</span><span style='color:#808030; '>)</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span> <span style='color:#696969; '>// sin coefficient p2</span>
+    y2 <span style='color:#808030; '>=</span> _mm256_mul_ps<span style='color:#808030; '>(</span>y2<span style='color:#808030; '>,</span> z<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    y2 <span style='color:#808030; '>=</span> _mm256_mul_ps<span style='color:#808030; '>(</span>y2<span style='color:#808030; '>,</span> x<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    y2 <span style='color:#808030; '>=</span> _mm256_add_ps<span style='color:#808030; '>(</span>y2<span style='color:#808030; '>,</span> x<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+
+    <span style='color:#696969; '>// Select the correct result from the two polynoms</span>
+    xmm3 <span style='color:#808030; '>=</span> polynomMask<span style='color:#800080; '>;</span>
+    __m256 ysin2 <span style='color:#808030; '>=</span> _mm256_and_ps<span style='color:#808030; '>(</span>xmm3<span style='color:#808030; '>,</span> y2<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    __m256 ysin1 <span style='color:#808030; '>=</span> _mm256_andnot_ps<span style='color:#808030; '>(</span>xmm3<span style='color:#808030; '>,</span> y<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    y2 <span style='color:#808030; '>=</span> _mm256_sub_ps<span style='color:#808030; '>(</span>y2<span style='color:#808030; '>,</span> ysin2<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    y <span style='color:#808030; '>=</span> _mm256_sub_ps<span style='color:#808030; '>(</span>y<span style='color:#808030; '>,</span> ysin1<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+
+    xmm1 <span style='color:#808030; '>=</span> _mm256_add_ps<span style='color:#808030; '>(</span>ysin1<span style='color:#808030; '>,</span> ysin2<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    xmm2 <span style='color:#808030; '>=</span> _mm256_add_ps<span style='color:#808030; '>(</span>y<span style='color:#808030; '>,</span> y2<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+
+    <span style='color:#696969; '>// Update the sign</span>
+    <span style='color:#808030; '>*</span>c <span style='color:#808030; '>=</span> _mm256_xor_ps<span style='color:#808030; '>(</span>xmm2<span style='color:#808030; '>,</span> signBitCos<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    <span style='color:#800000; font-weight:bold; '>return</span> _mm256_xor_ps<span style='color:#808030; '>(</span>xmm1<span style='color:#808030; '>,</span> signBitSin<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+<span style='color:#800080; '>}</span>
+
+<span style='color:#800000; font-weight:bold; '>float</span> <span style='color:#603000; '>sin</span><span style='color:#808030; '>(</span><span style='color:#800000; font-weight:bold; '>float</span> x<span style='color:#808030; '>)</span> <span style='color:#800080; '>{</span>
+    __m256 x8 <span style='color:#808030; '>=</span> _mm256_set1_ps<span style='color:#808030; '>(</span>x<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    __m256 ignore<span style='color:#800080; '>;</span>
+    __m256 sin8 <span style='color:#808030; '>=</span> mm256_sincos_ps<span style='color:#808030; '>(</span>x8<span style='color:#808030; '>,</span> <span style='color:#808030; '>&amp;</span>ignore<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    <span style='color:#800000; font-weight:bold; '>return</span> <span style='color:#808030; '>*</span><span style='color:#808030; '>(</span><span style='color:#800000; font-weight:bold; '>float</span><span style='color:#808030; '>*</span><span style='color:#808030; '>)</span><span style='color:#808030; '>&amp;</span>sin8<span style='color:#800080; '>;</span>
+<span style='color:#800080; '>}</span>
+</pre>
+        </code>
+
+        <h2>Sine in Action</h2>
+        <p>
+            We now have our own implementation for sine and cosine.
+            I was hoping that it might be a bit easier than a full-blown
+            implementation from scratch.
+            However, at the moment, I am satisfied with the result.
+            Here you can see an animation where the brightness of the triangle
+            oscillates over time using our sine function, not perfectly looped :)
+        </p>
+
+        <figure>
+            <img src="./img/2025-01-06_sin-triangle.gif" 
+              alt="green triangle getting brighter and darker" 
+              style="object-fit: contain;">
+            <figcaption>A green triangle getting brighter and darker using a sine function over time</figcaption>
+        </figure>
     </div>
 </body>
 </html>
