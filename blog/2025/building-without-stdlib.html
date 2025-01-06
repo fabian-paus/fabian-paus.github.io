@@ -1,0 +1,212 @@
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Fabian Paus' Blog</title>
+    <link rel="stylesheet" href="../../style.css">
+</head>
+<body>
+    <header>
+        <a class="logo" href="/">Home</a>
+        <nav>
+            <a href="/blog">Blog</a>
+            <a href="/cv.html">CV</a>
+            <a href="https://github.com/fabian-paus">GitHub</a>
+        </nav>
+    </header>
+
+    <div class="container">
+        <h1>Hardships when Building without the Standard Library</h1>
+        <ul class="tags">
+            <li>C++</li>
+            <li>MSVC</li>
+        </ul>
+
+        <p>
+        Recently, I have managed to display a magnificent 
+        <a href="./hunt-for-the-magenta-screen.html">magenta screen</a>
+        using OpenGL.
+        In order to learn every detail that goes into getting a window with
+        OpenGL rendering running, I tend to avoid any external libraries.
+        This includes the C++ standard library.
+        Among some known pitfalls when building without the standard library,
+        the first major road block that I encountered was the 
+        <a href="https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/sin-sinf-sinl"><code>sin</code></a>
+        function that comes up often during rendering, e.g. to represent rotations.
+        On my way to get a working <code>sin</code> function, I encountered some 
+        hardships when building without the C++ standard library.
+        </p>
+
+        <p>
+            Note: Currently, I build my software on Windows using 
+            <a href="https://visualstudio.microsoft.com/de/vs/features/cplusplus/">Microsoft Visual C++</a>
+            (MSVC).
+        </p>
+
+        <h2>The Setup</h2>
+        <p>
+            In order to build without the C++ standard library, you have to use the
+            <a href="https://learn.microsoft.com/en-us/cpp/build/reference/nodefaultlib-ignore-libraries">/NODEFAULTLIB</a>
+            linker option (Linker → Input → Ignore all default libraries).
+            You can no longer implement your 
+            <a href="https://learn.microsoft.com/de-de/windows/win32/api/winbase/nf-winbase-winmain"><code>WinMain</code></a> 
+            function,
+            since it is normally called by the C runtime, which is no longer present.
+            If you use the windows subsytem, i.e. <code>/SUBSYSTEM:WINDOWS</code>,
+            the startup function is now called <code>WinMainCRTStartup</code> by default.
+            But you can set your own name via the
+            <a href="https://learn.microsoft.com/en-us/cpp/build/reference/entry-entry-point-symbol?view=msvc-170"
+            ><code>/ENTRY</code></a> linker option.
+        </p>
+
+        <h2>Common Pitfalls</h2>
+        <p>
+            There are some pitfalls when building without the standard library 
+            that I was aware of before embarking on this endeavor.
+            You have to manually do tasks that have been handled by the C runtime before.
+        </p>
+
+        <h3>Exit your Process</h3>
+        <p>
+            Simply returning from <code>WinMainCRTStartup</code> will leave your process running, 
+            presumbly just idling along.
+            You have to make sure to call 
+            <a href="https://learn.microsoft.com/de-de/windows/win32/api/processthreadsapi/nf-processthreadsapi-exitprocess"
+            ><code>ExitProcess</code></a> at the end of your program.
+        </p>
+        <code>
+            <pre>
+<span style='color:#800000; font-weight:bold; '>extern</span> <span style='color:#800000; '>"</span><span style='color:#0000e6; '>C</span><span style='color:#800000; '>"</span> <span style='color:#800000; font-weight:bold; '>int</span> <span style='color:#603000; '>WINAPI</span> WinMainCRTStartup<span style='color:#808030; '>(</span><span style='color:#800000; font-weight:bold; '>void</span><span style='color:#808030; '>)</span> <span style='color:#800080; '>{</span>
+    <span style='color:#800000; font-weight:bold; '>int</span> exitCode <span style='color:#808030; '>=</span> mainFunction<span style='color:#808030; '>(</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+
+    <span style='color:#696969; '>// We have to manually exit the process since we do not use the C Standard Library</span>
+    <span style='color:#400000; '>ExitProcess</span><span style='color:#808030; '>(</span>exitCode<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+<span style='color:#800080; '>}</span>
+</pre>
+        </code>
+
+        <h3>Global Initializers do not Run</h3>
+        <p>
+            Global variables can be initialized by constants.
+            But, code that initializes global variables will not run:
+        </p>
+        <code>
+            <pre>
+<span style='color:#800000; font-weight:bold; '>int</span> f<span style='color:#808030; '>(</span><span style='color:#808030; '>)</span> <span style='color:#800080; '>{</span> <span style='color:#800000; font-weight:bold; '>return</span> <span style='color:#008c00; '>9000</span><span style='color:#800080; '>;</span> <span style='color:#800080; '>}</span>
+
+<span style='color:#800000; font-weight:bold; '>int</span> global_a <span style='color:#808030; '>=</span> <span style='color:#008c00; '>8000</span><span style='color:#800080; '>;</span> <span style='color:#696969; '>// Will be set to 8000</span>
+<span style='color:#800000; font-weight:bold; '>int</span> global_b <span style='color:#808030; '>=</span> f<span style='color:#808030; '>(</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>  <span style='color:#696969; '>// Will not be initialized, i.e. set 0</span></pre>
+        </code>
+
+        <h3>Initializers Might Use memset</h3>
+
+        <p>
+        You might have big structures or arrays in your code 
+        that you want to initialize.
+        For example a buffer to hold the info log from OpenGL:
+        </p>
+        <code>
+            <pre>
+<span style='color:#800000; font-weight:bold; '>int</span> success <span style='color:#808030; '>=</span> <span style='color:#008c00; '>0</span><span style='color:#800080; '>;</span>
+glGetShaderiv<span style='color:#808030; '>(</span>shader<span style='color:#808030; '>,</span> GL_COMPILE_STATUS<span style='color:#808030; '>,</span> <span style='color:#808030; '>&amp;</span>success<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+<span style='color:#800000; font-weight:bold; '>if</span> <span style='color:#808030; '>(</span><span style='color:#808030; '>!</span>success<span style='color:#808030; '>)</span> <span style='color:#800080; '>{</span>
+    <span style='color:#696969; '>// Initialize all the elements of the infoLog array to zero</span>
+    <span style='color:#800000; font-weight:bold; '>char</span> infoLog<span style='color:#808030; '>[</span><span style='color:#008c00; '>512</span><span style='color:#808030; '>]</span> <span style='color:#808030; '>=</span> <span style='color:#800080; '>{</span><span style='color:#800080; '>}</span><span style='color:#800080; '>;</span>
+
+    glGetShaderInfoLog<span style='color:#808030; '>(</span>shader<span style='color:#808030; '>,</span> <span style='color:#800000; font-weight:bold; '>sizeof</span><span style='color:#808030; '>(</span>infoLog<span style='color:#808030; '>)</span><span style='color:#808030; '>,</span> <span style='color:#800000; font-weight:bold; '>nullptr</span><span style='color:#808030; '>,</span> infoLog<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+
+    <span style='color:#696969; '>// Output the info log</span>
+ <span style='color:#800080; '>}</span>
+</pre>
+        </code>
+
+        <p>
+            The compiler might output a call to 
+            <a href="https://learn.microsoft.com/de-de/cpp/c-runtime-library/reference/memset-wmemset"
+            ><code>memset</code></a>
+            to initialize of <code>infoLog</code> variable.
+            Whether the compiler does this, depends on your other compiler settings.
+            I found that in release mode, it was more likely to <code>memset</code> than in debug mode.
+            But your mileage may vary.
+            Also, the 
+            <a href="https://learn.microsoft.com/en-us/cpp/build/reference/oi-generate-intrinsic-functions"
+            ><code>/Oi</code></a> compiler flag seems to have some influence.
+
+            Nevertheless, if the compiler inserts a call to <code>memset</code>,
+            you will see following linker error:
+        </p>
+        <code>
+            <pre>
+error LNK2019: unresolved external symbol memset referenced in function 
+  "void __cdecl gl_compileShader(unsigned int,char const *)" (?gl_compileShader@@YAXIPEBD@Z)
+fatal error LNK1120: 1 unresolved externals
+</pre>
+        </code>
+        <p>
+            In order to fix this, you have to provide your own implementation of <code>memset</code>.
+            The naive approach will lead to another error, since the compiler might consider
+            <code>memset</code> to be an intrinsic that cannot be implemented directly.
+        </p>
+        <code>
+            <pre>error C2169: 'memset': intrinsic function, cannot be defined</pre>
+        </code>
+
+        <p>
+            Therefore, you should mark <code>memset</code> as a normal function
+            before implementing it:
+        </p>
+        <code>
+            <pre>
+<span style='color:#696969; '>// Mark memset as function so that we can implement it</span>
+<span style='color:#004a43; '>#</span><span style='color:#004a43; font-weight:bold; '>pragma</span><span style='color:#bb7977; font-weight:bold; '> function(memset)</span>
+<span style='color:#800000; font-weight:bold; '>void</span><span style='color:#808030; '>*</span> <span style='color:#800000; font-weight:bold; '>__cdecl</span> <span style='color:#603000; '>memset</span><span style='color:#808030; '>(</span><span style='color:#800000; font-weight:bold; '>void</span><span style='color:#808030; '>*</span> destination<span style='color:#808030; '>,</span> <span style='color:#800000; font-weight:bold; '>int</span> value<span style='color:#808030; '>,</span> <span style='color:#603000; '>size_t</span> size<span style='color:#808030; '>)</span> <span style='color:#800080; '>{</span>
+    <span style='color:#696969; '>// You should probably look a more optimized version of memset</span>
+    <span style='color:#800000; font-weight:bold; '>char</span><span style='color:#808030; '>*</span> dest <span style='color:#808030; '>=</span> <span style='color:#808030; '>(</span><span style='color:#800000; font-weight:bold; '>char</span><span style='color:#808030; '>*</span><span style='color:#808030; '>)</span>destination<span style='color:#800080; '>;</span>
+    <span style='color:#800000; font-weight:bold; '>for</span> <span style='color:#808030; '>(</span><span style='color:#800000; font-weight:bold; '>int</span> i <span style='color:#808030; '>=</span> <span style='color:#008c00; '>0</span><span style='color:#800080; '>;</span> i <span style='color:#808030; '>&lt;</span> size<span style='color:#800080; '>;</span> <span style='color:#808030; '>+</span><span style='color:#808030; '>+</span>i<span style='color:#808030; '>)</span> <span style='color:#800080; '>{</span>
+        dest<span style='color:#808030; '>[</span>i<span style='color:#808030; '>]</span> <span style='color:#808030; '>=</span> value<span style='color:#800080; '>;</span>
+    <span style='color:#800080; '>}</span>
+    <span style='color:#800000; font-weight:bold; '>return</span> dest<span style='color:#800080; '>;</span>
+<span style='color:#800080; '>}</span>
+</pre>
+        </code>
+
+
+        <h3>Floating Point Arithmetic Requires Setup</h3>
+        <p>
+            If you use floating point numbers, i.e. <code>float</code> or <code>double</code>
+            variables and computations, you will get the following linker error:
+        </p>
+        <code>
+            <pre>
+error LNK2001: unresolved external symbol _fltused
+fatal error LNK1120: 1 unresolved externals
+</pre>
+        </code>
+        <p>
+            The <code>_fltused</code> variable seems to have originated from the old days
+            where we still needed floating point emulation libraries.
+            These were necessary if the CPU did not support floating point instructions.
+            You can read Raymond Chen's article about
+            <a href="https://devblogs.microsoft.com/oldnewthing/20130108-00/?p=5623"
+            >Understanding the classical model for linking</a> for details.
+            Since nowadays all CPUs support floating point instructions,
+            this is just a remnant of the past.
+            We can replace it by a simple mock to satisfy the linker:
+        </p>
+        <code>
+            <pre>
+<span style='color:#696969; '>// This variable is expected by the linker if floats or doubles are used</span>
+<span style='color:#800000; font-weight:bold; '>extern</span> <span style='color:#800000; '>"</span><span style='color:#0000e6; '>C</span><span style='color:#800000; '>"</span> <span style='color:#800000; font-weight:bold; '>int</span> _fltused <span style='color:#808030; '>=</span> <span style='color:#008c00; '>0</span><span style='color:#800080; '>;</span>
+            </pre>
+        </code>
+
+
+
+
+        <h2>The Naive Approach</h2>
+
+        <h2>Intrinsics to the Rescue?</h2>
+
+        <h2>AVX2 has a Solution?</h2>
+    </div>
+</body>
+</html>
