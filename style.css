@@ -138,7 +138,7 @@ figure figcaption {
     font-family: monospace, monospace;
     font-size: 0.75em;
     text-align: center;
-    color: grey;
+    color: rgb(57, 57, 57);
 }
 
 .footnote-definition sup {
