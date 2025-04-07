@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="description" content="Just some robotics animations">
+        <title>Animations Testing for Robotics</title>
+        <style type="text/css">
+            canvas {
+                border: 1px solid black;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Theoretical Robotics</h1>
+        <div style="display: flex; flex-direction: row; gap: 1rem">
+            <canvas id="robot" width="400" height="300"></canvas>
+            <canvas id="config" width="300" height="300"></canvas>
+            <canvas id="work" width="300" height="300"></canvas>
+        </div>
+        
+        <div>
+            <input type="range" id="q1" name="q1" min="0" max="100" value="50" />
+            <label for="q1">Joint 1</label>
+            <input type="range" id="q2" name="q2" min="0" max="100" value="0" />
+            <label for="q2">Joint 2</label>
+        </div>
+        <div>
+            <button type="button" id="sampleWorkspace">Sample Workspace</button>
+        </div>
+        <script src="robots.js"></script>
+    </body>
+</html>
