@@ -5,6 +5,8 @@
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="description" content="Just some robotics animations">
         <title>Animations Testing for Robotics</title>
+        <link rel="stylesheet" href="../../style.css">
+        <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
         <style type="text/css">
             canvas {
                 border: 1px solid black;
@@ -12,9 +14,84 @@
         </style>
     </head>
     <body>
+        <header>
+            <a class="logo" href="/">Home</a>
+            <nav>
+                <a href="/blog">Blog</a>
+                <a href="/cv.html">CV</a>
+                <a href="https://github.com/fabian-paus">GitHub</a>
+            </nav>
+        </header>
+
         <h1>Theoretical Robotics</h1>
+
+        <p>
+            An introduction to the theoretical basics of robotics and kinematics.
+        </p>
+
+        <h2>What is a Robot?</h2>
+        <p>
+            The Oxford dictionary defines a robot as a a machine — especially one programmable by a computer — 
+            capable of carrying out a complex series of actions automatically.
+            However, if we follow this definition, an industrial coffee machine or your fancy kitchen machine would be a robot.
+            While this might by the case, we often associate 
+            <a href="https://www.kuka.com/en-de/products/robot-systems/industrial-robots">industrial robot arms</a>
+            assembling cars or 
+            <a href="https://bostondynamics.com/atlas/">humanoid robots</a>
+            carrying packages around with being actual robots.
+        </p>
+
+        <p>
+            Let's approach this question from both a theoretical and a quite pragmatic side.
+            Would you consider the following thing a robot? 
+            It has one joint that you can move with the slider below.
+            It is a robot arm in its most abstract form and reduced to a single degree of freedom.
+        </p>
+
+        <p>
+            TODO: Insert animated robot arm
+        </p>
+
+        <p>
+            One could argue whether a single degree of freedom is enough to be considered a robot.
+            In fact, I had this discussion with my colleagues when I was a PhD student.
+            Be careful when answering this question, since it determines whether the toaster in 
+            your kitchen is a robot or not. 
+            Let's circumvent this existential question by increasing the degrees of freedom to two.
+        </p>
+
         <div style="display: flex; flex-direction: row; gap: 1rem">
             <canvas id="robot" width="400" height="300"></canvas>
+            <div style="display: flex; flex-direction: column; gap: 1rem">
+                <div>
+                    <label for="q1">Joint 1</label>
+                    <input type="range" id="q1" name="q1" min="0" max="100" value="50" />
+                </div>
+                <div>
+                    <label for="q2">Joint 2</label>
+                    <input type="range" id="q2" name="q2" min="0" max="100" value="0" />
+                </div>
+            </div>
+        </div>
+
+        <h2>Describing the Robot's State</h2>
+
+        <p>
+            The robot has sensors in its joints that tell it the current position of the joints.
+            The positions of all joints describe the robot's state completely.
+            We will describe the position of joints by \(q_1\), \(q_2\), etc.
+            Then, the complete state can be described as a vector \(\boldsymbol{q}\):
+            $$
+            \boldsymbol{q} = \left(\begin{matrix}
+                q_1 \\
+                q_2 \\
+                ...
+            \end{matrix}
+            \right)
+            $$
+        </p>
+
+        <div style="display: flex; flex-direction: row; gap: 1rem">
             <canvas id="config" width="300" height="300"></canvas>
             <canvas id="work" width="300" height="300"></canvas>
         </div>
