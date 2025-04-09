@@ -18,6 +18,168 @@ console.log("Robots");
  * @property {number} q2 Angle of the second joint
  */
 
+/**
+ * @typedef ForwardResult
+ * @property {Pos} seg1
+ * @property {Pos} seg2
+ */
+
+class Robot {
+    // Definition of the kinematics
+    l1 = 20; // Length of the first segment
+    l2 = 20; // Length of the second segment
+
+    q1_min = 0.25 * Math.PI;
+    q1_max = 0.75 * Math.PI;
+
+    q2_min = -0.5 * Math.PI;
+    q2_max = +0.5 * Math.PI;
+
+    // Position
+    x = 0;
+    y = 0;
+
+    // Joint state
+    q1 = 0.5 * Math.PI
+    q2 = -0.5 * Math.PI;
+
+    
+    forward() {
+        const seg1 = {
+            x: this.x + this.l1 * Math.cos(this.q1),
+            y: this.y + this.l1 * Math.sin(this.q1),
+        };
+        const seg2 = {
+            x: seg1.x + this.l2 * Math.cos(this.q1 + this.q2),
+            y: seg1.y + this.l2 * Math.sin(this.q1 + this.q2),
+        };
+        return { seg1, seg2 };
+    }
+
+    /**
+     * Draw the robot
+     * 
+     * @param {CanvasRenderingContext2D} ctx 
+     */
+    draw(ctx) {
+        ctx.reset();
+
+        // Scale everything with the width of the canvas
+        const w = ctx.canvas.width;
+        const scale_x = w / 100;
+
+        ctx.transform(
+            1, 0, 
+            0, -1,
+            w / 2, 
+            ctx.canvas.height - 10 * scale_x,
+        );
+        ctx.lineWidth = scale_x;
+
+        const pos = robotPos;
+
+        // Base
+        const baseWidth = 20 * scale_x;
+        const baseStartX = pos.x - baseWidth / 2;
+        const baseEndX = pos.x + baseWidth / 2
+        line(ctx, { x: baseStartX, y: pos.y }, { x: baseEndX, y: pos.y });
+
+        // Lines under the base
+        const baseLineLength = baseWidth / 6;
+        const lineCount = 5;
+        for (let i = 0; i <= lineCount; ++i) {
+            const xOffset = baseStartX + i * baseWidth / lineCount;
+            line(ctx, 
+                { x: xOffset, y: pos.y }, 
+                { x: xOffset - baseLineLength, y: pos.y - baseLineLength });
+        }
+
+        const state = this.forward();
+
+        // TODO: Bake scaling into the transformation
+        state.seg1.x *= scale_x;
+        state.seg1.y *= scale_x;
+        state.seg2.x *= scale_x;
+        state.seg2.y *= scale_x;
+        
+        line(ctx, pos, state.seg1);
+        line(ctx, state.seg1, state.seg2);
+
+        // Draw joints
+        const jointDotRadius = 2.5 * scale_x;
+        const seg1Joint = circle(pos, jointDotRadius);
+        const seg2Joint = circle(state.seg1, jointDotRadius);
+        const endPoint = circle(state.seg2, jointDotRadius);
+
+        ctx.fill(seg1Joint);
+        ctx.fill(seg2Joint);
+        ctx.fill(endPoint);
+    }
+
+    /**
+     * Draw the configuration space of the robot
+     * 
+     * @param {CanvasRenderingContext2D} ctx 
+     * @param {MouseState} mouse 
+     * @returns {boolean} Needs update
+     */
+    drawConfigSpace(ctx, mouse) {
+        ctx.reset();
+    
+        const x_min = -Math.PI;
+        const x_max = +Math.PI;
+        const x_range = x_max - x_min;
+    
+        const y_min = -Math.PI;
+        const y_max = +Math.PI;
+        const y_range = y_max - y_min;
+    
+    
+        const scale = (ctx.canvas.width / x_range) * 0.9;
+    
+        ctx.lineWidth = 1.0 / scale;
+    
+        ctx.transform(
+            scale, 0,
+            0, -scale,
+            ctx.canvas.width / 2,
+            ctx.canvas.width / 2,
+        );
+    
+        // Config space
+        ctx.fillStyle = '#BAEBF0';
+        ctx.fillRect(this.q1_min, this.q2_min,
+            this.q1_max - this.q1_min,
+            this.q2_max - this.q2_min);
+    
+        // Coordinate system
+        line(ctx, { x: x_min, y: 0}, { x: x_max, y: 0});
+        line(ctx, { x: 0, y: y_min}, { x: 0, y: y_max});
+    
+        // Current configuration
+        const current = circle({ x: this.q1, y: this.q2}, 4 / scale);
+        ctx.fillStyle = '#48A6A7';
+        ctx.fill(current);
+    
+        const selected = circle({ x: this.q1, y: this.q2}, 7 / scale);
+        const hover = ctx.isPointInPath(selected, mouse.pos.x, mouse.pos.y);
+        if (hover) {
+            ctx.fill(selected);
+        }
+    
+        if (mouse.left.down) {
+            const q = ctx.getTransform().inverse().transformPoint(mouse.pos);
+            this.q1 = q.x;
+            this.q1 = Math.min(Math.max(this.q1, this.q1_min), this.q1_max);
+            this.q2 = q.y;
+            this.q2 = Math.min(Math.max(this.q2, this.q2_min), this.q2_max);
+            return true;
+        }
+
+        return false;
+    }
+}
+
 const robotDef = /** @type {RobotDef} */ ({
     l1: 20,
     l2: 20,
@@ -37,11 +199,7 @@ const robotDef = /** @type {RobotDef} */ ({
 
 const robotPos = { x: 0, y: 0 };
 
-/**
- * @typedef ForwardResult
- * @property {Pos} seg1
- * @property {Pos} seg2
- */
+
 
 /**
  * 
@@ -87,134 +245,10 @@ function circle(center, radius) {
 }
 
 /**
- * 
- * @param {CanvasRenderingContext2D} ctx 
- * @param {RobotConfig} config
+ * @typedef MouseState
+ * @property {Pos} pos
+ * @property {{ down: boolean}} left
  */
-function drawRobot(ctx, config) {
-    ctx.reset();
-
-    // Scale everything with the width of the canvas
-    const w = ctx.canvas.width;
-    const scale_x = w / 100;
-
-    ctx.transform(
-        1, 0, 
-        0, -1,
-        w / 2, 
-        ctx.canvas.height - 10 * scale_x,
-    );
-    ctx.lineWidth = scale_x;
-
-    const pos = robotPos;
-
-    // Base
-    const baseWidth = 20 * scale_x;
-    const baseStartX = pos.x - baseWidth / 2;
-    const baseEndX = pos.x + baseWidth / 2
-    line(ctx, { x: baseStartX, y: pos.y }, { x: baseEndX, y: pos.y });
-
-    // Lines under the base
-    const baseLineLength = baseWidth / 6;
-    const lineCount = 5;
-    for (let i = 0; i <= lineCount; ++i) {
-        const xOffset = baseStartX + i * baseWidth / lineCount;
-        line(ctx, 
-            { x: xOffset, y: pos.y }, 
-            { x: xOffset - baseLineLength, y: pos.y - baseLineLength });
-    }
-
-    const state = forward(robotDef, config);
-
-    // TODO: Bake scaling into the transformation
-    state.seg1.x *= scale_x;
-    state.seg1.y *= scale_x;
-    state.seg2.x *= scale_x;
-    state.seg2.y *= scale_x;
-    
-    line(ctx, pos, state.seg1);
-    line(ctx, state.seg1, state.seg2);
-
-    // Draw joints
-    const jointDotRadius = 2.5 * scale_x;
-    const seg1Joint = circle(pos, jointDotRadius);
-    const seg2Joint = circle(state.seg1, jointDotRadius);
-    const endPoint = circle(state.seg2, jointDotRadius);
-
-    ctx.fill(seg1Joint);
-    ctx.fill(seg2Joint);
-    ctx.fill(endPoint);
-}
-
-const mouse = {
-    pos: { x: 0, y: 0 },
-    left: {
-        down: false,
-    },
-}
-
-/**
- * 
- * @param {CanvasRenderingContext2D} ctx 
- * @param {RobotDef} def 
- * @param {RobotConfig} config 
- */
-function drawConfigSpace(ctx, def, config) {
-    ctx.reset();
-
-    const x_min = -Math.PI;
-    const x_max = +Math.PI;
-    const x_range = x_max - x_min;
-
-    const y_min = -Math.PI;
-    const y_max = +Math.PI;
-    const y_range = y_max - y_min;
-
-
-    const scale = (ctx.canvas.width / x_range) * 0.9;
-
-    ctx.lineWidth = 1.0 / scale;
-
-    ctx.transform(
-        scale, 0,
-        0, -scale,
-        ctx.canvas.width / 2,
-        ctx.canvas.width / 2,
-    );
-
-    // Config space
-    ctx.fillStyle = '#BAEBF0';
-    ctx.fillRect(def.q1_min, def.q2_min,
-        def.q1_max - def.q1_min,
-        def.q2_max - def.q2_min);
-
-    // Coordinate system
-    line(ctx, { x: x_min, y: 0}, { x: x_max, y: 0});
-    line(ctx, { x: 0, y: y_min}, { x: 0, y: y_max});
-
-    // Current configuration
-    const current = circle({ x: config.q1, y: config.q2}, 4 / scale);
-    ctx.fillStyle = '#48A6A7';
-    ctx.fill(current);
-
-    const selected = circle({ x: config.q1, y: config.q2}, 7 / scale);
-    const hover = ctx.isPointInPath(selected, mouse.pos.x, mouse.pos.y);
-    if (hover) {
-        ctx.fill(selected);
-    }
-
-    if (mouse.left.down) {
-        const q = ctx.getTransform().inverse().transformPoint(mouse.pos);
-        config.q1 = q.x;
-        config.q1 = Math.min(Math.max(config.q1, def.q1_min), def.q1_max);
-        config.q2 = q.y;
-        config.q2 = Math.min(Math.max(config.q2, def.q2_min), def.q2_max);
-
-        // TODO: Apply limits
-        setConfigInpus();
-        nextFrame();
-    }
-}
 
 /**
  * @typedef Workspace
@@ -380,6 +414,172 @@ function getContext(elementId) {
     return context;
 }
 
+class Visualization {
+    draw_functions = [];
+
+    
+    /**
+     * 
+     * @param {Robot} robot 
+     * @param {string} canvas_id
+     * @param {string} q1_id
+     * @param {string} q2_id
+     */
+    addRobotControl(robot, canvas_id, q1_id, q2_id) {
+        const context = getContext(canvas_id);
+
+        const q1Input = document.getElementById(q1_id);
+        const q2Input = document.getElementById(q2_id);
+        
+        function updateConfig() {
+            const q1Ratio = q1Input.value / 100.0;
+            const q1 = robot.q1_min + q1Ratio * (robot.q1_max - robot.q1_min);
+            robot.q1 = q1;
+
+            const q2Ratio = q2Input.value / 100.0;
+            const q2 = robot.q2_min + q2Ratio * (robot.q2_max - robot.q2_min);
+            robot.q2 = q2;
+        }
+
+        const self = this;
+
+        q1Input.addEventListener('input', function() {
+            updateConfig();
+            self.nextFrame();
+        });
+
+
+        q2Input.addEventListener('input', function() {
+            updateConfig();
+            self.nextFrame();
+        });
+
+        this.draw_functions.push(() => robot.draw(context));
+    }
+
+    /**
+     * 
+     * @param {Robot} robot 
+     * @param {string} canvas_id
+     * @param {string} q1_id
+     * @param {string} q2_id
+     */
+    addConfigSpace(robot, canvas_id, q1_id, q2_id) {
+        const context = getContext(canvas_id);
+
+        const q1Input = document.getElementById(q1_id);
+        const q2Input = document.getElementById(q2_id);
+
+        const mouse = {
+            pos: { x: 0, y: 0 },
+            left: {
+                down: false,
+            },
+        };
+
+        function setConfigInpus() {
+            const q1Ratio = (robot.q1 - robot.q1_min) / (robot.q1_max - robot.q1_min);
+            q1Input.value = Math.floor(100.0 * q1Ratio);
+
+            const q2Ratio = (robot.q2 - robot.q2_min) / (robot.q2_max - robot.q2_min);
+            q2Input.value = Math.floor(100.0 * q2Ratio);
+        }
+
+        const self = this;
+        
+
+        this.draw_functions.push(() => {
+                const needsUpdate = robot.drawConfigSpace(context, mouse);
+                if (needsUpdate) {
+                    setConfigInpus();
+                    nextFrame();
+                }
+            });
+
+        context.canvas.addEventListener('mousemove', function(event) {
+            mouse.pos.x = event.offsetX;
+            mouse.pos.y = event.offsetY;
+            self.nextFrame();
+        });
+
+        context.canvas.addEventListener('mousedown', function(event) {
+            mouse.left.down = true;
+            self.nextFrame();
+        });
+        
+        context.canvas.addEventListener('mouseup', function(event) {
+            mouse.left.down = false;
+            self.nextFrame();
+        });
+    }
+
+    nextFrame() {
+        for (const draw of this.draw_functions) {
+            draw();
+        }
+    }
+}
+
+
+/**
+ * 
+ * @param {Robot} robot 
+ * @param {string} canvas_id
+ * @param {string} q1_id
+ * @param {string} q2_id
+ */
+function visualizeConfigSpace(robot, canvas_id, q1_id, q2_id) {
+    const context = getContext(canvas_id);
+
+    const q1Input = document.getElementById(q1_id);
+    const q2Input = document.getElementById(q2_id);
+
+    const mouse = {
+        pos: { x: 0, y: 0 },
+        left: {
+            down: false,
+        },
+    };
+
+    function setConfigInpus() {
+        const q1Ratio = (robot.q1 - robot.q1_min) / (robot.q1_max - robot.q1_min);
+        q1Input.value = Math.floor(100.0 * q1Ratio);
+
+        const q2Ratio = (robot.q2 - robot.q2_min) / (robot.q2_max - robot.q2_min);
+        q2Input.value = Math.floor(100.0 * q2Ratio);
+    }
+    
+
+    function nextFrame() {
+        window.requestAnimationFrame(() => {
+            const needsUpdate = robot.drawConfigSpace(context, mouse);
+            if (needsUpdate) {
+                setConfigInpus();
+                nextFrame();
+            }
+        });
+    }
+
+    context.canvas.addEventListener('mousemove', function(event) {
+        mouse.pos.x = event.offsetX;
+        mouse.pos.y = event.offsetY;
+        nextFrame();
+    });
+
+    context.canvas.addEventListener('mousedown', function(event) {
+        mouse.left.down = true;
+        nextFrame();
+    });
+    
+    context.canvas.addEventListener('mouseup', function(event) {
+        mouse.left.down = false;
+        nextFrame();
+    });
+
+    nextFrame();
+}
+
+if (false) {
 const robotContext = getContext("robot");
 const configContext = getContext("config");
 const workContext = getContext("work");
@@ -476,3 +676,14 @@ sampleWorkspaceButton.addEventListener('click', () => {
 
     window.requestAnimationFrame(nextConfiguration);
 });
+}
+
+const robot = new Robot();
+const vis = new Visualization();
+vis.addRobotControl(robot, "robot", "q1", "q2");
+vis.addConfigSpace(robot, "config", "q1", "q2");
+
+vis.nextFrame();
+// visualizeRobot(robot, "robot", "q1", "q2");
+// visualizeConfigSpace(robot, "config", "q1", "q2");
+// visualizeWorkspace(robot, "work");
