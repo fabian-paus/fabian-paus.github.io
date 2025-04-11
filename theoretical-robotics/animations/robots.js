@@ -678,12 +678,41 @@ sampleWorkspaceButton.addEventListener('click', () => {
 });
 }
 
-const robot = new Robot();
-const vis = new Visualization();
-vis.addRobotControl(robot, "robot", "q1", "q2");
-vis.addConfigSpace(robot, "config", "q1", "q2");
+// const robot = new Robot();
+// const vis = new Visualization();
+// vis.addRobotControl(robot, "robot", "q1", "q2");
+// vis.addConfigSpace(robot, "config", "q1", "q2");
 
-vis.nextFrame();
+// vis.nextFrame();
 // visualizeRobot(robot, "robot", "q1", "q2");
 // visualizeConfigSpace(robot, "config", "q1", "q2");
 // visualizeWorkspace(robot, "work");
+
+function robot1d() {
+    const robot = new Robot();
+    robot.l1 = 40;
+    robot.l2 = 0;
+    robot.q1_min = 0; 
+    robot.q1_max = Math.PI;
+    const vis = new Visualization();
+    vis.addRobotControl(robot, "robot1d", "robot1d_q1", "robot1d_q1");
+
+    vis.nextFrame();
+}
+
+function robot2d() {
+    const robot = new Robot();
+    const vis = new Visualization();
+    vis.addRobotControl(robot, "robot2d", "robot2d_q1", "robot2d_q2");
+
+    vis.nextFrame();
+}
+
+function robot2d_config() {
+    const robot = new Robot();
+    const vis = new Visualization();
+    vis.addRobotControl(robot, "robot2dc", "robot2dc_q1", "robot2dc_q2");
+    vis.addConfigSpace(robot, "robot2dc", "robot2dc_q1", "robot2dc_q2");
+
+    vis.nextFrame();
+}

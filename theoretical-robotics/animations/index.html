@@ -14,6 +14,8 @@
         </style>
     </head>
     <body>
+        <script src="robots.js"></script>
+
         <header>
             <a class="logo" href="/">Home</a>
             <nav>
@@ -48,9 +50,18 @@
             It is a robot arm in its most abstract form and reduced to a single degree of freedom.
         </p>
 
-        <p>
-            TODO: Insert animated robot arm
-        </p>
+        <div style="display: flex; flex-direction: row; gap: 1rem">
+            <canvas id="robot1d" width="400" height="300"></canvas>
+            <div style="display: flex; flex-direction: column; gap: 1rem">
+                <div>
+                    <label for="robot1d_q1">Joint 1</label>
+                    <input type="range" id="robot1d_q1" name="q1" min="0" max="100" value="50" />
+                </div>
+            </div>
+            <script>
+                robot1d();
+            </script>
+        </div>
 
         <p>
             One could argue whether a single degree of freedom is enough to be considered a robot.
@@ -61,17 +72,20 @@
         </p>
 
         <div style="display: flex; flex-direction: row; gap: 1rem">
-            <canvas id="robot" width="400" height="300"></canvas>
+            <canvas id="robot2d" width="400" height="300"></canvas>
             <div style="display: flex; flex-direction: column; gap: 1rem">
                 <div>
-                    <label for="q1">Joint 1</label>
-                    <input type="range" id="q1" name="q1" min="0" max="100" value="50" />
+                    <label for="robot2d_q1">Joint 1</label>
+                    <input type="range" id="robot2d_q1" name="q1" min="0" max="100" value="50" />
                 </div>
                 <div>
-                    <label for="q2">Joint 2</label>
-                    <input type="range" id="q2" name="q2" min="0" max="100" value="0" />
+                    <label for="robot2d_q2">Joint 2</label>
+                    <input type="range" id="robot2d_q2" name="q2" min="0" max="100" value="0" />
                 </div>
             </div>
+            <script>
+                robot2d();
+            </script>
         </div>
 
         <h2>Describing the Robot's State</h2>
@@ -92,6 +106,23 @@
         </p>
 
         <div style="display: flex; flex-direction: row; gap: 1rem">
+            <canvas id="robot2dc" width="400" height="300"></canvas>
+            <div style="display: flex; flex-direction: column; gap: 1rem">
+                <div>
+                    <label for="robot2dc_q1">Joint 1</label>
+                    <input type="range" id="robot2dc_q1" name="q1" min="0" max="100" value="50" />
+                </div>
+                <div>
+                    <label for="robot2dc_q2">Joint 2</label>
+                    <input type="range" id="robot2dc_q2" name="q2" min="0" max="100" value="0" />
+                </div>
+            </div>
+            <script>
+                robot2d_config();
+            </script>
+        </div>
+
+        <div style="display: flex; flex-direction: row; gap: 1rem">
             <canvas id="config" width="300" height="300"></canvas>
             <canvas id="work" width="300" height="300"></canvas>
         </div>
@@ -105,6 +136,5 @@
         <div>
             <button type="button" id="sampleWorkspace">Sample Workspace</button>
         </div>
-        <script src="robots.js"></script>
     </body>
 </html>
